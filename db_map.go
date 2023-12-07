@@ -1,0 +1,176 @@
+package gorms
+
+import (
+	"gorm.io/gorm"
+	"reflect"
+	"sync"
+	"time"
+)
+
+const (
+	MasterDBName   = "_gorms_master"
+	MapDBStructTag = "gorm"
+)
+
+type CallbackByMapDBAdd func(db *gorm.DB) error
+
+// CallbackByMapDBAddRaiseErrorOnNotFound
+//https://github.com/go-gorm/gorm/issues/3789
+func CallbackByMapDBAddRaiseErrorOnNotFound() CallbackByMapDBAdd {
+	return func(db *gorm.DB) error {
+		return db.
+			Callback().
+			Query().
+			Before("gorm:query").
+			Register("disable_raise_record_not_found", func(db *gorm.DB) {
+				db.Statement.RaiseErrorOnNotFound = false
+			})
+	}
+}
+
+// CallbackByMapDBAddSQLPool
+//https://gorm.io/zh_CN/docs/generic_interface.html#%E8%BF%9E%E6%8E%A5%E6%B1%A0
+func CallbackByMapDBAddSQLPool(maxIdleConns, maxOpenConns int, d time.Duration) CallbackByMapDBAdd {
+	return func(db *gorm.DB) error {
+		sqlDB, err := db.DB()
+		if err != nil {
+			return err
+		}
+		// SetMaxIdleConns 用于设置连接池中空闲连接的最大数量。
+		sqlDB.SetMaxIdleConns(maxIdleConns)
+		// SetMaxOpenConns 设置打开数据库连接的最大数量。
+		sqlDB.SetMaxOpenConns(maxOpenConns)
+		// SetConnMaxLifetime 设置了连接可复用的最大时间。
+		sqlDB.SetConnMaxLifetime(d)
+		return nil
+	}
+}
+
+type DBMap struct {
+	masterDB       *gorm.DB
+	names          []string
+	mapDB          map[string]*gorm.DB
+	lock           *sync.Mutex
+	addDBCallbacks []CallbackByMapDBAdd
+}
+
+func DefaultDBMap() *DBMap {
+	return &DBMap{
+		names: []string{},
+		mapDB: map[string]*gorm.DB{},
+		lock:  &sync.Mutex{},
+		addDBCallbacks: []CallbackByMapDBAdd{
+			CallbackByMapDBAddRaiseErrorOnNotFound(),
+		},
+	}
+}
+
+func NewDBMap() *DBMap {
+	return &DBMap{
+		names:          []string{},
+		mapDB:          map[string]*gorm.DB{},
+		lock:           &sync.Mutex{},
+		addDBCallbacks: []CallbackByMapDBAdd{},
+	}
+}
+
+func (g *DBMap) AddCallback(callback CallbackByMapDBAdd) *DBMap {
+	g.addDBCallbacks = append(g.addDBCallbacks, callback)
+	return g
+}
+
+func (g *DBMap) AddMasterDB(masterDB *gorm.DB) error {
+	return g.Add(MasterDBName, masterDB)
+}
+
+func (g *DBMap) MasterDB() *gorm.DB {
+	return g.MustGet(MasterDBName)
+}
+
+// AddStruct
+// exp: Config
+func (g *DBMap) AddStruct(s any) error {
+	v := reflect.ValueOf(s)
+	t := reflect.TypeOf(s)
+	if t.Kind() == reflect.Ptr {
+		for i := 0; i < v.Elem().NumField(); i++ {
+			e := v.Elem().Field(i)
+			if !e.IsZero() {
+				if config, ok := e.Interface().(IConfig); ok {
+					name := t.Elem().Field(i).Tag.Get(MapDBStructTag)
+					if name == "" {
+						name = t.Elem().Field(i).Name
+					}
+					db, err := config.DB()
+					if err != nil {
+						return err
+					}
+					if err = g.Add(name, db); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
+	return NewErrMapDB("", ErrDBMapStruct)
+}
+
+func (g *DBMap) AddConfig(config IConfig) error {
+	db, err := config.DB()
+	if err != nil {
+		return err
+	}
+	return g.Add(config.GetName(), db)
+}
+
+func (g *DBMap) Add(name string, db *gorm.DB) error {
+	if g.Exist(name) {
+		return NewErrMapDB(name, ErrDBMapAddExist)
+	}
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	for _, callback := range g.addDBCallbacks {
+		if err := callback(db); err != nil {
+			return err
+		}
+	}
+	if name == MasterDBName {
+		g.masterDB = db
+	}
+	if g.masterDB == nil {
+		g.masterDB = db
+	}
+	g.mapDB[name] = db
+	g.names = append(g.names, name)
+	return nil
+}
+
+func (g *DBMap) Exist(name string) bool {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	_, ok := g.mapDB[name]
+	return ok
+}
+
+func (g *DBMap) MustGet(name string) *gorm.DB {
+	db, err := g.Get(name)
+	if err != nil {
+		panic(err)
+	}
+	return db
+}
+
+func (g *DBMap) Get(name string) (*gorm.DB, error) {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	db, ok := g.mapDB[name]
+	if !ok {
+		return nil, NewErrMapDB(name, ErrDBMapGetNotFind)
+	}
+	return db, nil
+}
+
+func (g *DBMap) GetNames() []string {
+	return g.names
+}
