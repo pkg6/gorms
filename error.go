@@ -30,6 +30,8 @@ func NewErrMapDB(name string, Errors int) *ErrMapDB {
 		e.Message = fmt.Sprintf("%s does not exist", name)
 	case ErrDBMapStruct:
 		e.Message = "struct parsing failed"
+	default:
+		e.Message = "Inexplicable error"
 	}
 	return e
 }

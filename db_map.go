@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MasterDBName   = "_gorms_master"
+	MapDBDBName    = "_gorm_db"
 	MapDBStructTag = "gorm"
 )
 
@@ -47,7 +47,6 @@ func CallbackByMapDBAddSQLPool(maxIdleConns, maxOpenConns int, d time.Duration) 
 }
 
 type DBMap struct {
-	masterDB       *gorm.DB
 	names          []string
 	mapDB          map[string]*gorm.DB
 	lock           *sync.Mutex
@@ -74,19 +73,6 @@ func NewDBMap() *DBMap {
 	}
 }
 
-func (g *DBMap) AddCallback(callback CallbackByMapDBAdd) *DBMap {
-	g.addDBCallbacks = append(g.addDBCallbacks, callback)
-	return g
-}
-
-func (g *DBMap) AddMasterDB(masterDB *gorm.DB) error {
-	return g.Add(MasterDBName, masterDB)
-}
-
-func (g *DBMap) MasterDB() *gorm.DB {
-	return g.MustGet(MasterDBName)
-}
-
 // AddStruct
 // exp: Config
 func (g *DBMap) AddStruct(s any) error {
@@ -105,7 +91,7 @@ func (g *DBMap) AddStruct(s any) error {
 					if err != nil {
 						return err
 					}
-					if err = g.Add(name, db); err != nil {
+					if err = g.Register(name, db); err != nil {
 						return err
 					}
 				}
@@ -121,10 +107,17 @@ func (g *DBMap) AddConfig(config IConfig) error {
 	if err != nil {
 		return err
 	}
-	return g.Add(config.GetName(), db)
+	return g.Register(config.GetName(), db)
+}
+func (g *DBMap) AddCallback(callback CallbackByMapDBAdd) *DBMap {
+	g.addDBCallbacks = append(g.addDBCallbacks, callback)
+	return g
 }
 
-func (g *DBMap) Add(name string, db *gorm.DB) error {
+func (g *DBMap) RegisterDB(db *gorm.DB) error {
+	return g.Register(MapDBDBName, db)
+}
+func (g *DBMap) Register(name string, db *gorm.DB) error {
 	if g.Exist(name) {
 		return NewErrMapDB(name, ErrDBMapAddExist)
 	}
@@ -134,12 +127,6 @@ func (g *DBMap) Add(name string, db *gorm.DB) error {
 		if err := callback(db); err != nil {
 			return err
 		}
-	}
-	if name == MasterDBName {
-		g.masterDB = db
-	}
-	if g.masterDB == nil {
-		g.masterDB = db
 	}
 	g.mapDB[name] = db
 	g.names = append(g.names, name)
@@ -151,6 +138,10 @@ func (g *DBMap) Exist(name string) bool {
 	defer g.lock.Unlock()
 	_, ok := g.mapDB[name]
 	return ok
+}
+
+func (g *DBMap) DB() *gorm.DB {
+	return g.MustGet(MapDBDBName)
 }
 
 func (g *DBMap) MustGet(name string) *gorm.DB {
