@@ -1,0 +1,15 @@
+Mysql:
+  DSN: user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
+  Config:
+    QueryFields: true
+    PrepareStmt: true
+    NamingStrategy:
+      SingularTable: true
+Postgres:
+  DSN: "host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai"
+SQLite:
+  DSN: "gorm.db"
+Clickhouse:
+  DSN: "tcp://localhost:9000?database=gorm&username=gorm&password=gorm&read_timeout=10&write_timeout=20"
+SQLServer:
+  DSN: sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm
