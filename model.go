@@ -7,14 +7,14 @@ type IModel interface {
 }
 
 type IDModel struct {
-	ID uint `json:"id" gorm:"primaryKey"`
+	ID uint `json:"id" xml:"ID" gorm:"primaryKey"`
 }
 
 type TimeModel struct {
-	CreatedAt int `json:"created_at"`
-	UpdatedAt int `json:"updated_at"`
+	CreatedAt int `json:"created_at" xml:"CreatedAt"`
+	UpdatedAt int `json:"updated_at" xml:"UpdatedAt"`
 }
 
-type SoftDeleteModel struct {
-	Deleted gorm.DeletedAt
+type SoftModel struct {
+	DeletedAt gorm.DeletedAt `json:"deleted_at" xml:"DeletedAt" gorm:"index"`
 }

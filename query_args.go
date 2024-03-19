@@ -1,8 +1,72 @@
 package gorms
 
 import (
+	"gorm.io/gorm"
 	"strings"
 )
+
+const (
+	ConnectorAnd = "AND"
+	ConnectorOr  = "OR"
+)
+
+const (
+	OperatorIn         = "IN"
+	OperatorNot        = "NOT"
+	OperatorLike       = "LIKE"
+	OperatorEq         = "="
+	OperatorNe         = "<>"
+	OperatorGt         = ">"
+	OperatorGe         = ">="
+	OperatorLt         = "<"
+	OperatorLe         = "<="
+	OperatorIsNull     = "IS NULL"
+	OperatorIsNotNull  = "IS NOT NULL"
+	OperatorBetween    = "BETWEEN"
+	OperatorNotBetween = OperatorNot + " " + OperatorBetween
+	OperatorNotIn      = OperatorNot + " " + OperatorIn
+	OperatorNotLike    = OperatorNot + " " + OperatorLike
+)
+
+const (
+	OrderByDesc = "DESC"
+	OrderByAsc  = "ASC"
+)
+
+const (
+	SUM   = "SUM"
+	AVG   = "AVG"
+	MAX   = "MAX"
+	MIN   = "MIN"
+	COUNT = "COUNT"
+)
+
+// ScopesWhereQueryArgs
+//args = NewQueryArgs()
+//db.Scopes(ScopesWhereQueryArgs(args)).Find(&users)
+func ScopesWhereQueryArgs(queryArgs *QueryArgs) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		query, arg := queryArgs.WhereQueryArgs()
+		if query != "" {
+			return db.Where(query, arg...)
+		}
+		return db
+	}
+}
+
+func ScopesCallbackWhereQueryArgs(fns ...func(queryArgs *QueryArgs)) func(db *gorm.DB) *gorm.DB {
+	args := NewQueryArgs()
+	for _, fn := range fns {
+		fn(args)
+	}
+	return ScopesWhereQueryArgs(args)
+}
+
+func NewQueryArgs() *QueryArgs {
+	return &QueryArgs{
+		criteria: []*Criteria{},
+	}
+}
 
 type IQueryArgs interface {
 	QueryArgs() (string, []any)
@@ -11,12 +75,6 @@ type IQueryArgs interface {
 type QueryArgs struct {
 	//条件筛选
 	criteria []*Criteria
-}
-
-func NewSQLArgs() *QueryArgs {
-	return &QueryArgs{
-		criteria: []*Criteria{},
-	}
 }
 
 // Eq 等于 =

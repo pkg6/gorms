@@ -18,19 +18,6 @@ func ScopesPage(page, size int) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-// ScopesWhereQueryArgs
-//args = NewSQLArgs()
-//db.Scopes(ScopesWhereQueryArgs(args)).Find(&users)
-func ScopesWhereQueryArgs(args *QueryArgs) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		query, arg := args.WhereQueryArgs()
-		if query != "" {
-			return db.Where(query, arg...)
-		}
-		return db
-	}
-}
-
 var (
 	DefaultPageQueryPage        = "page"
 	DefaultPageQuerySize        = "size"
