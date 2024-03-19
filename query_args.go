@@ -205,6 +205,17 @@ func (c *Criteria) QueryArgs() (string, []any) {
 		query = c.Column + " " + c.Operator + " ? AND ?"
 	case OperatorIsNull, OperatorIsNotNull:
 		query = c.Column + " " + c.Operator
+	case OperatorIn, OperatorNotIn:
+		buf := new(strings.Builder)
+		for range c.Value {
+			buf.WriteString(" ?,")
+		}
+		var char string
+		if buf.Len() != 0 {
+			str := buf.String()
+			char = str[:len(str)-1]
+		}
+		query = c.Column + " " + c.Operator + " ( " + char + " )"
 	default:
 		query = c.Column + " " + c.Operator + " ? "
 	}
