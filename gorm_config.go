@@ -18,6 +18,10 @@ var (
 	}
 )
 
+type INameDBConfig interface {
+	NameDB() (map[string]*gorm.DB, error)
+}
+
 type IConfig interface {
 	GetName() string
 	DB() (*gorm.DB, error)

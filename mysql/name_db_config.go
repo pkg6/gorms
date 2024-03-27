@@ -1,15 +1,20 @@
 package mysql
 
 import (
+	"fmt"
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/pkg6/gorms"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-type Config struct {
-	Name                          string
-	DSN                           string
+type NameDBConfig struct {
+	User                          string
+	Password                      string
+	Host                          string
+	Port                          int
+	Charset                       string
+	NameDatabase                  map[string]string
 	SkipInitializeWithVersion     bool
 	DefaultStringSize             uint
 	DefaultDatetimePrecision      *int
@@ -23,14 +28,11 @@ type Config struct {
 	Config                        *gorms.GORMConfig
 }
 
-func (c *Config) GetName() string {
-	return c.Name
-}
-func (c *Config) DB() (*gorm.DB, error) {
-	dsnConf, _ := mysqldriver.ParseDSN(c.DSN)
-	return gorm.Open(mysql.New(mysql.Config{
-		DSN:                           c.DSN,
-		DSNConfig:                     dsnConf,
+func (c *NameDBConfig) NameDB() (map[string]*gorm.DB, error) {
+	var (
+		err error
+	)
+	mysqlConfig := mysql.Config{
 		SkipInitializeWithVersion:     c.SkipInitializeWithVersion,
 		DefaultStringSize:             c.DefaultStringSize,
 		DefaultDatetimePrecision:      c.DefaultDatetimePrecision,
@@ -41,5 +43,29 @@ func (c *Config) DB() (*gorm.DB, error) {
 		DontSupportForShareClause:     c.DontSupportForShareClause,
 		DontSupportNullAsDefaultValue: c.DontSupportNullAsDefaultValue,
 		DontSupportRenameColumnUnique: c.DontSupportRenameColumnUnique,
-	}), c.Config.GORMConfig())
+	}
+	if c.Port == 0 {
+		c.Port = 3306
+	}
+	if c.Charset == "" {
+		c.Charset = "utf8mb4"
+	}
+	mapDB := map[string]*gorm.DB{}
+	for name, database := range c.NameDatabase {
+		var db *gorm.DB
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
+			c.User,
+			c.Password,
+			c.Host,
+			c.Port,
+			database,
+			c.Charset,
+		)
+		dsnConf, _ := mysqldriver.ParseDSN(dsn)
+		mysqlConfig.DSNConfig = dsnConf
+		mysqlConfig.DSN = dsn
+		db, err = gorm.Open(mysql.New(mysqlConfig), c.Config.GORMConfig())
+		mapDB[name] = db
+	}
+	return mapDB, err
 }

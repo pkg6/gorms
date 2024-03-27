@@ -21,21 +21,21 @@ type Config struct {
 	Config                       *gorms.GORMConfig
 }
 
-func (m *Config) GetName() string {
-	return m.Name
+func (c *Config) GetName() string {
+	return c.Name
 }
 
-func (m *Config) DB() (*gorm.DB, error) {
+func (c *Config) DB() (*gorm.DB, error) {
 	return gorm.Open(clickhouse.New(clickhouse.Config{
-		DSN:                          m.DSN,
-		DisableDatetimePrecision:     m.DisableDatetimePrecision,
-		DontSupportRenameColumn:      m.DontSupportRenameColumn,
-		DontSupportColumnPrecision:   m.DontSupportColumnPrecision,
-		DontSupportEmptyDefaultValue: m.DontSupportEmptyDefaultValue,
-		SkipInitializeWithVersion:    m.SkipInitializeWithVersion,
-		DefaultGranularity:           m.DefaultGranularity,
-		DefaultCompression:           m.DefaultCompression,
-		DefaultIndexType:             m.DefaultIndexType,
-		DefaultTableEngineOpts:       m.DefaultTableEngineOpts,
-	}), m.Config.GORMConfig())
+		DSN:                          c.DSN,
+		DisableDatetimePrecision:     c.DisableDatetimePrecision,
+		DontSupportRenameColumn:      c.DontSupportRenameColumn,
+		DontSupportColumnPrecision:   c.DontSupportColumnPrecision,
+		DontSupportEmptyDefaultValue: c.DontSupportEmptyDefaultValue,
+		SkipInitializeWithVersion:    c.SkipInitializeWithVersion,
+		DefaultGranularity:           c.DefaultGranularity,
+		DefaultCompression:           c.DefaultCompression,
+		DefaultIndexType:             c.DefaultIndexType,
+		DefaultTableEngineOpts:       c.DefaultTableEngineOpts,
+	}), c.Config.GORMConfig())
 }

@@ -12,10 +12,10 @@ type Config struct {
 	Config *gorms.GORMConfig
 }
 
-func (m *Config) GetName() string {
-	return m.Name
+func (c *Config) GetName() string {
+	return c.Name
 }
 
-func (m *Config) DB() (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(m.DSN), m.Config.GORMConfig())
+func (c *Config) DB() (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open(c.DSN), c.Config.GORMConfig())
 }

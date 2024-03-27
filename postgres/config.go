@@ -15,15 +15,15 @@ type Config struct {
 	Config               *gorms.GORMConfig
 }
 
-func (m *Config) GetName() string {
-	return m.Name
+func (c *Config) GetName() string {
+	return c.Name
 }
 
-func (m *Config) DB() (*gorm.DB, error) {
+func (c *Config) DB() (*gorm.DB, error) {
 	return gorm.Open(postgres.New(postgres.Config{
-		DSN:                  m.DSN,
-		WithoutQuotingCheck:  m.WithoutQuotingCheck,
-		PreferSimpleProtocol: m.PreferSimpleProtocol,
-		WithoutReturning:     m.WithoutReturning,
-	}), m.Config.GORMConfig())
+		DSN:                  c.DSN,
+		WithoutQuotingCheck:  c.WithoutQuotingCheck,
+		PreferSimpleProtocol: c.PreferSimpleProtocol,
+		WithoutReturning:     c.WithoutReturning,
+	}), c.Config.GORMConfig())
 }

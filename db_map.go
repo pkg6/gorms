@@ -2,22 +2,24 @@ package gorms
 
 import (
 	"gorm.io/gorm"
+	"log"
+	"os"
 	"reflect"
 	"sync"
 	"time"
 )
 
 const (
-	MapDBDBName    = "_gorm_db"
-	MapDBStructTag = "gorm"
+	dbMapPtrTag    = "gorm"
+	DBMapENVMainDB = "main_db"
 )
 
-type DBCallback func(db *gorm.DB) error
+type DBCallback func(name string, db *gorm.DB) error
 
 // DBCallbackOnErrorOnNotFound
 //https://github.com/go-gorm/gorm/issues/3789
 func DBCallbackOnErrorOnNotFound() DBCallback {
-	return func(db *gorm.DB) error {
+	return func(name string, db *gorm.DB) error {
 		return db.
 			Callback().
 			Query().
@@ -31,7 +33,7 @@ func DBCallbackOnErrorOnNotFound() DBCallback {
 // DBCallbackOnPool
 //https://gorm.io/zh_CN/docs/generic_interface.html#%E8%BF%9E%E6%8E%A5%E6%B1%A0
 func DBCallbackOnPool(maxIdleConns, maxOpenConns int, d time.Duration) DBCallback {
-	return func(db *gorm.DB) error {
+	return func(name string, db *gorm.DB) error {
 		sqlDB, err := db.DB()
 		if err != nil {
 			return err
@@ -45,53 +47,54 @@ func DBCallbackOnPool(maxIdleConns, maxOpenConns int, d time.Duration) DBCallbac
 		return nil
 	}
 }
-
-type DBMap struct {
-	names            []string
-	mapDB            map[string]*gorm.DB
-	lock             *sync.Mutex
-	registerCallback []DBCallback
-}
-
 func DefaultDBMap() *DBMap {
-	return &DBMap{
-		names: []string{},
-		mapDB: map[string]*gorm.DB{},
-		lock:  &sync.Mutex{},
-		registerCallback: []DBCallback{
-			DBCallbackOnErrorOnNotFound(),
-		},
-	}
+	dbmap := NewDBMap()
+	dbmap.OnRegisterCallback(DBCallbackOnErrorOnNotFound())
+	return dbmap
 }
 
 func NewDBMap() *DBMap {
 	return &DBMap{
-		names:            []string{},
+		dbNames:          []string{},
 		mapDB:            map[string]*gorm.DB{},
 		lock:             &sync.Mutex{},
 		registerCallback: []DBCallback{},
 	}
 }
 
-// AddStruct
-// exp: Config
-func (g *DBMap) AddStruct(s any) error {
-	v := reflect.ValueOf(s)
-	t := reflect.TypeOf(s)
+type DBMap struct {
+	dbNames          []string
+	mapDB            map[string]*gorm.DB
+	lock             *sync.Mutex
+	registerCallback []DBCallback
+}
+
+// DB 根据定义环境变量读取db
+func (g *DBMap) DB() *gorm.DB {
+	if name := os.Getenv(DBMapENVMainDB); name != "" {
+		return g.MustGet(name)
+	}
+	return nil
+}
+
+// RegisterByPtrConfig
+// exp:
+// type DBMapConfig struct {
+//	Test *mysql.Config `gorm:"test"`
+//}
+func (g *DBMap) RegisterByPtrConfig(ptr any) error {
+	v := reflect.ValueOf(ptr)
+	t := reflect.TypeOf(ptr)
 	if t.Kind() == reflect.Ptr {
 		for i := 0; i < v.Elem().NumField(); i++ {
 			e := v.Elem().Field(i)
 			if !e.IsZero() {
 				if config, ok := e.Interface().(IConfig); ok {
-					name := t.Elem().Field(i).Tag.Get(MapDBStructTag)
+					name := t.Elem().Field(i).Tag.Get(dbMapPtrTag)
 					if name == "" {
 						name = t.Elem().Field(i).Name
 					}
-					db, err := config.DB()
-					if err != nil {
-						return err
-					}
-					if err = g.Register(name, db); err != nil {
+					if err := g.RegisterByConfig(config, name); err != nil {
 						return err
 					}
 				}
@@ -102,50 +105,61 @@ func (g *DBMap) AddStruct(s any) error {
 	return NewErrMapDB("", ErrDBMapStruct)
 }
 
-func (g *DBMap) AddConfig(config IConfig) error {
+// RegisterByConfig 根据config进行注册config
+// exp
+// mysql.Config
+func (g *DBMap) RegisterByConfig(config IConfig, names ...string) error {
 	db, err := config.DB()
 	if err != nil {
 		return err
 	}
-	return g.Register(config.GetName(), db)
+	name := config.GetName()
+	if len(names) > 0 {
+		name = names[0]
+	}
+	return g.Register(name, db)
 }
 
+// RegisterByNameDBConfig 批量注册db
+func (g *DBMap) RegisterByNameDBConfig(config INameDBConfig) error {
+	dbs, err := config.NameDB()
+	if err != nil {
+		return err
+	}
+	for name, db := range dbs {
+		err = g.Register(name, db)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// OnRegisterCallback 注入在注册的回掉函数
 func (g *DBMap) OnRegisterCallback(callback DBCallback) *DBMap {
 	g.registerCallback = append(g.registerCallback, callback)
 	return g
 }
 
-func (g *DBMap) RegisterDB(db *gorm.DB) error {
-	return g.Register(MapDBDBName, db)
-}
-
+// Register 注册db
 func (g *DBMap) Register(name string, db *gorm.DB) error {
-	if g.Exist(name) {
-		return NewErrMapDB(name, ErrDBMapAddExist)
-	}
 	g.lock.Lock()
 	defer g.lock.Unlock()
+
+	if _, ok := g.mapDB[name]; ok {
+		log.Printf("[GORMS] [WARNING] %s already exists and will overwrite the connection with the original DB", name)
+	}
 	for _, callback := range g.registerCallback {
-		if err := callback(db); err != nil {
+		if err := callback(name, db); err != nil {
 			return err
 		}
 	}
 	g.mapDB[name] = db
-	g.names = append(g.names, name)
+	g.dbNames = append(g.dbNames, name)
 	return nil
 }
 
-func (g *DBMap) Exist(name string) bool {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	_, ok := g.mapDB[name]
-	return ok
-}
-
-func (g *DBMap) DB() *gorm.DB {
-	return g.MustGet(MapDBDBName)
-}
-
+// MustGet 根据name强制读取db，否则就panic
 func (g *DBMap) MustGet(name string) *gorm.DB {
 	db, err := g.Get(name)
 	if err != nil {
@@ -154,6 +168,7 @@ func (g *DBMap) MustGet(name string) *gorm.DB {
 	return db
 }
 
+// Get 根据name 获取db
 func (g *DBMap) Get(name string) (*gorm.DB, error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
@@ -164,6 +179,15 @@ func (g *DBMap) Get(name string) (*gorm.DB, error) {
 	return db, nil
 }
 
-func (g *DBMap) GetNames() []string {
-	return g.names
+// Exist 判断namedb 是否存在
+func (g *DBMap) Exist(name string) bool {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	_, ok := g.mapDB[name]
+	return ok
+}
+
+// GetDBNames 获取所有注册的数据别名
+func (g *DBMap) GetDBNames() []string {
+	return g.dbNames
 }

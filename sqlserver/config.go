@@ -13,13 +13,13 @@ type Config struct {
 	Config            *gorms.GORMConfig
 }
 
-func (m *Config) GetName() string {
-	return m.Name
+func (c *Config) GetName() string {
+	return c.Name
 }
 
-func (m *Config) DB() (*gorm.DB, error) {
+func (c *Config) DB() (*gorm.DB, error) {
 	return gorm.Open(sqlserver.New(sqlserver.Config{
-		DSN:               m.DSN,
-		DefaultStringSize: m.DefaultStringSize,
-	}), m.Config.GORMConfig())
+		DSN:               c.DSN,
+		DefaultStringSize: c.DefaultStringSize,
+	}), c.Config.GORMConfig())
 }
