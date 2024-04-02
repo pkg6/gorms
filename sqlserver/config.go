@@ -18,8 +18,8 @@ func (c *Config) GetName() string {
 }
 
 func (c *Config) DB() (*gorm.DB, error) {
-	return gorm.Open(sqlserver.New(sqlserver.Config{
+	return Open(sqlserver.Config{
 		DSN:               c.DSN,
 		DefaultStringSize: c.DefaultStringSize,
-	}), c.Config.GORMConfig())
+	}, c.Config.GORMConfig())
 }

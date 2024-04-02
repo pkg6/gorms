@@ -11,8 +11,8 @@ type IDModel struct {
 }
 
 type TimeModel struct {
-	CreatedAt int `json:"created_at" xml:"CreatedAt"`
-	UpdatedAt int `json:"updated_at" xml:"UpdatedAt"`
+	CreatedAt int64 `json:"created_at" xml:"CreatedAt"`
+	UpdatedAt int64 `json:"updated_at" xml:"UpdatedAt"`
 }
 
 type SoftModel struct {

@@ -20,10 +20,10 @@ func (c *Config) GetName() string {
 }
 
 func (c *Config) DB() (*gorm.DB, error) {
-	return gorm.Open(postgres.New(postgres.Config{
-		DSN:                  c.DSN,
-		WithoutQuotingCheck:  c.WithoutQuotingCheck,
+	return Open(postgres.Config{
+		DSN: c.DSN,
+		//WithoutQuotingCheck:  c.WithoutQuotingCheck,
 		PreferSimpleProtocol: c.PreferSimpleProtocol,
 		WithoutReturning:     c.WithoutReturning,
-	}), c.Config.GORMConfig())
+	}, c.Config.GORMConfig())
 }

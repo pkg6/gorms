@@ -28,7 +28,7 @@ func (c *Config) GetName() string {
 }
 func (c *Config) DB() (*gorm.DB, error) {
 	dsnConf, _ := mysqldriver.ParseDSN(c.DSN)
-	return gorm.Open(mysql.New(mysql.Config{
+	return Open(mysql.Config{
 		DSN:                           c.DSN,
 		DSNConfig:                     dsnConf,
 		SkipInitializeWithVersion:     c.SkipInitializeWithVersion,
@@ -41,5 +41,5 @@ func (c *Config) DB() (*gorm.DB, error) {
 		DontSupportForShareClause:     c.DontSupportForShareClause,
 		DontSupportNullAsDefaultValue: c.DontSupportNullAsDefaultValue,
 		DontSupportRenameColumnUnique: c.DontSupportRenameColumnUnique,
-	}), c.Config.GORMConfig())
+	}, c.Config.GORMConfig())
 }

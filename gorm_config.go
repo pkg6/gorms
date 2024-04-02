@@ -66,7 +66,7 @@ type NamingStrategy struct {
 
 func (config *GORMConfig) GORMConfig() *gorm.Config {
 	if config != nil {
-		return &gorm.Config{
+		gromConfig := &gorm.Config{
 			SkipDefaultTransaction:                   config.SkipDefaultTransaction,
 			FullSaveAssociations:                     config.FullSaveAssociations,
 			DryRun:                                   config.DryRun,
@@ -79,14 +79,17 @@ func (config *GORMConfig) GORMConfig() *gorm.Config {
 			QueryFields:                              config.QueryFields,
 			CreateBatchSize:                          config.CreateBatchSize,
 			TranslateError:                           config.TranslateError,
-			NamingStrategy: schema.NamingStrategy{
+			Logger:                                   DefaultLogger,
+		}
+		if config.NamingStrategy != nil {
+			gromConfig.NamingStrategy = schema.NamingStrategy{
 				TablePrefix:         config.NamingStrategy.TablePrefix,
 				SingularTable:       config.NamingStrategy.SingularTable,
 				NoLowerCase:         config.NamingStrategy.NoLowerCase,
 				IdentifierMaxLength: config.NamingStrategy.IdentifierMaxLength,
-			},
-			Logger: DefaultLogger,
+			}
 		}
+		return gromConfig
 	}
 	return DefaultGORMConfig
 }
