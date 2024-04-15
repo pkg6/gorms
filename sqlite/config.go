@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"github.com/pkg6/gorms"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -17,5 +16,5 @@ func (c *Config) GetName() string {
 }
 
 func (c *Config) DB() (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(c.DSN), c.Config.GORMConfig())
+	return Open(c.DSN, c.Config.GORMConfig())
 }

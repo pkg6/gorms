@@ -26,7 +26,7 @@ func (c *Config) GetName() string {
 }
 
 func (c *Config) DB() (*gorm.DB, error) {
-	return gorm.Open(clickhouse.New(clickhouse.Config{
+	return Open(clickhouse.Config{
 		DSN:                          c.DSN,
 		DisableDatetimePrecision:     c.DisableDatetimePrecision,
 		DontSupportRenameColumn:      c.DontSupportRenameColumn,
@@ -37,5 +37,5 @@ func (c *Config) DB() (*gorm.DB, error) {
 		DefaultCompression:           c.DefaultCompression,
 		DefaultIndexType:             c.DefaultIndexType,
 		DefaultTableEngineOpts:       c.DefaultTableEngineOpts,
-	}), c.Config.GORMConfig())
+	}, c.Config.GORMConfig())
 }
